@@ -8,4 +8,5 @@
 
 @interface SBOrientationLockManager : NSObject
 +(id)sharedInstance;
+-(BOOL)isUserLocked;
 @end

@@ -7,7 +7,7 @@
 @end
 
 static NSString * nsDomainString = @"com.tareq.orientationcontrol";
-static NSString * nsNotificationString = @"com.tareq.orientationcontrol/preferences.changed";
+static NSString * nsNotificationString = @"com.tareq.orientationcontrolpreferences/preferences.changed";
 static BOOL enabled;
 
 static BOOL nonUserSwitch = false;
@@ -16,67 +16,35 @@ static BOOL nonUserSwitch = false;
 
 -(void)frontDisplayDidChange:(id)newDisplay {
 
-    %orig(newDisplay);
+	%orig(newDisplay);
 
-    if (newDisplay == nil) {
-			// In Home Screen
+	NSMutableDictionary *prefs = [[NSMutableDictionary alloc]
+		initWithContentsOfFile:@"/private/var/mobile/Library/Preferences/com.tareq.orientationcontrol.plist"];
 
-			if (nonUserSwitch == true) {
+	enabled = ([prefs objectForKey:@"enabled"] ? [[prefs objectForKey:@"enabled"] boolValue] : YES);
 
-				nonUserSwitch = false;
+	if (newDisplay == nil && enabled) {
+		// In Home Screen
 
-				UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Disable Rotation Lock"
-																		 message: nil
-																		 preferredStyle:UIAlertControllerStyleAlert];
+		if (nonUserSwitch == true && [[%c(SBOrientationLockManager) sharedInstance] isUserLocked]) {
 
-				UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"Unlock" style:UIAlertActionStyleDefault
-					 handler:^(UIAlertAction * action) {
-					 [[%c(SBOrientationLockManager) sharedInstance] unlock];
-				 }];
-				UIAlertAction* cancelAction = [UIAlertAction actionWithTitle:@"Keep Locked" style:UIAlertActionStyleCancel
-					handler:^(UIAlertAction * action) { }];
+			nonUserSwitch = false;
 
-				[alert addAction:defaultAction];
-				[alert addAction:cancelAction];
+			UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Disable Rotation Lock"
+				message: nil
+				preferredStyle:UIAlertControllerStyleAlert];
 
-				[[[UIApplication sharedApplication] keyWindow].rootViewController presentViewController:alert animated:YES completion:nil];
-
-			}
-
-    } else if ([newDisplay isKindOfClass:%c(SBApplication)]) {
-			// In An Application
-
-
-
-    }
-
-}
-
-%end
-
-%hook SBSceneView
-
--(void)_setOrientation:(long long)orientation {
-		/*
-			orientation as an LLI:
-					* 1 is portrait
-					* 3 is landscape, home button on right
-					* 4 is landscape, home button on left
-		*/
-
-		if (self.orientation != orientation && self.orientation == 1 && !nonUserSwitch) {
-
-			UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"SBSceneView"
-																	 message: [NSString stringWithFormat:@"%lli > %lli", self.orientation, orientation]
-																	 preferredStyle:UIAlertControllerStyleAlert];
-
-			UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"Switch" style:UIAlertActionStyleDefault
-				 handler:^(UIAlertAction * action) { }];
-			UIAlertAction* cancelAction = [UIAlertAction actionWithTitle:@"Nope" style:UIAlertActionStyleCancel
+			UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"Unlock"
+				style:UIAlertActionStyleDefault
 				handler:^(UIAlertAction * action) {
-					nonUserSwitch = true;
-					[[%c(SBOrientationLockManager) sharedInstance] lock];
+
+					[[%c(SBOrientationLockManager) sharedInstance] unlock];
+
 			}];
+
+			UIAlertAction* cancelAction = [UIAlertAction actionWithTitle:@"Keep Locked"
+				style:UIAlertActionStyleCancel
+				handler:^(UIAlertAction * action) { }];
 
 			[alert addAction:defaultAction];
 			[alert addAction:cancelAction];
@@ -85,23 +53,89 @@ static BOOL nonUserSwitch = false;
 
 		}
 
-    %orig;
+	} else if ([newDisplay isKindOfClass:%c(SBApplication)] && enabled) {
+		// In An Application
+
+		// UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"SBApplication Opened"
+		// 	message: [NSString stringWithFormat: @"%@", newDisplay]
+		// 	preferredStyle:UIAlertControllerStyleAlert];
+		//
+		// UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"OK"
+		// 	style:UIAlertActionStyleDefault
+		// 	handler:^(UIAlertAction * action) { }];
+		//
+		// [alert addAction:defaultAction];
+		//
+		// [[[UIApplication sharedApplication] keyWindow].rootViewController presentViewController:alert animated:YES completion:nil];
+
+	}
 
 }
+
 %end
 
-static void notificationCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
-	NSNumber * enabledValue = (NSNumber *)[[NSUserDefaults standardUserDefaults] objectForKey:@"enabled" inDomain:nsDomainString];
-	enabled = (enabledValue)? [enabledValue boolValue] : YES;
+%hook SBSceneView
+
+-(void)_setOrientation:(long long)orientation {
+	/*
+		orientation as an LLI:
+			* 1 is portrait
+			* 3 is landscape, home button on right
+			* 4 is landscape, home button on left
+	*/
+
+	NSMutableDictionary *prefs = [[NSMutableDictionary alloc]
+		initWithContentsOfFile:@"/private/var/mobile/Library/Preferences/com.tareq.orientationcontrol.plist"];
+
+	enabled = ([prefs objectForKey:@"enabled"] ? [[prefs objectForKey:@"enabled"] boolValue] : YES);
+
+	if (self.orientation != orientation && self.orientation == 1 && !nonUserSwitch && enabled) {
+
+		UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"SBSceneView"
+			message: [NSString stringWithFormat:@"%lli > %lli", self.orientation, orientation]
+			preferredStyle:UIAlertControllerStyleAlert];
+
+		UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"Switch"
+			style:UIAlertActionStyleDefault
+			handler:^(UIAlertAction * action) { }];
+
+		UIAlertAction* cancelAction = [UIAlertAction actionWithTitle:@"Nope"
+			style:UIAlertActionStyleCancel
+			handler:^(UIAlertAction * action) {
+
+				nonUserSwitch = true;
+				[[%c(SBOrientationLockManager) sharedInstance] lock];
+
+		}];
+
+		[alert addAction:defaultAction];
+		[alert addAction:cancelAction];
+
+		[[[UIApplication sharedApplication] keyWindow].rootViewController presentViewController:alert animated:YES completion:nil];
+
+	}
+
+	%orig;
+
+}
+
+%end
+
+static void preferencesChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
+
+	CFPreferencesAppSynchronize(CFSTR("com.tareq.orientationcontrol"));
+
 }
 
 %ctor {
-	// Set variables on start up
-	notificationCallback(NULL, NULL, NULL, NULL, NULL);
 
 	// Register for 'PostNotification' notifications
-	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, notificationCallback, (CFStringRef)nsNotificationString, NULL, CFNotificationSuspensionBehaviorCoalesce);
 
-	// Add any personal initializations
+	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, preferencesChanged, CFSTR("com.tareq.orientationcontrol.preferencechanged"), NULL, CFNotificationSuspensionBehaviorCoalesce);
+
+	NSMutableDictionary *prefs = [[NSMutableDictionary alloc]
+		initWithContentsOfFile:@"/private/var/mobile/Library/Preferences/com.tareq.orientationcontrol.plist"];
+
+	enabled = ([prefs objectForKey:@"enabled"] ? [[prefs objectForKey:@"enabled"] boolValue] : YES);
 
 }
