@@ -8,7 +8,9 @@
 
 static NSString * nsDomainString = @"com.tareq.orientationcontrol";
 static NSString * nsNotificationString = @"com.tareq.orientationcontrolpreferences/preferences.changed";
+static NSString * prefsFile = @"/private/var/mobile/Library/Preferences/com.tareq.orientationcontrol.plist";
 static BOOL enabled;
+static BOOL appDisabled;
 
 static BOOL nonUserSwitch = false;
 
@@ -19,7 +21,7 @@ static BOOL nonUserSwitch = false;
 	%orig(newDisplay);
 
 	NSMutableDictionary *prefs = [[NSMutableDictionary alloc]
-		initWithContentsOfFile:@"/private/var/mobile/Library/Preferences/com.tareq.orientationcontrol.plist"];
+		initWithContentsOfFile: prefsFile];
 
 	enabled = ([prefs objectForKey:@"enabled"] ? [[prefs objectForKey:@"enabled"] boolValue] : YES);
 
@@ -56,8 +58,23 @@ static BOOL nonUserSwitch = false;
 	} else if ([newDisplay isKindOfClass:%c(SBApplication)] && enabled) {
 		// In An Application
 
-		// UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"SBApplication Opened"
-		// 	message: [NSString stringWithFormat: @"%@", newDisplay]
+		// NSString* title = @"SBApplication Not Disabled";
+		NSString* identifier = ((SBApplication *) newDisplay).bundleIdentifier;
+
+		if ([self isAppDisabled: identifier fromPrefs: prefs]) {
+
+			// title = @"SBApplication Is Disabled";
+
+			appDisabled = YES;
+
+		}
+
+		// UIAlertController* alert = [UIAlertController alertControllerWithTitle:title
+		// 	message: [NSString stringWithFormat: @"%@\n%@\n%@",
+		// 		identifier,
+		// 		[NSString stringWithFormat:@"%@%@", @"disabledIn-", identifier],
+		// 		prefs[[NSString stringWithFormat:@"%@%@", @"disabledIn-", identifier]]
+		// 	]
 		// 	preferredStyle:UIAlertControllerStyleAlert];
 		//
 		// UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"OK"
@@ -69,6 +86,40 @@ static BOOL nonUserSwitch = false;
 		// [[[UIApplication sharedApplication] keyWindow].rootViewController presentViewController:alert animated:YES completion:nil];
 
 	}
+
+}
+
+%new
+
+-(NSSet*)getAllDisabledApps:(NSMutableDictionary*)prefs {
+
+    NSMutableSet *result = [@[] mutableCopy];
+
+    for (NSString *keyval in [prefs allKeys]) {
+
+        if ([keyval rangeOfString:@"disabledIn-"].length > 0) {
+
+            NSString *identifier = [keyval substringFromIndex: [keyval rangeOfString:@"disabledIn-"].length];
+
+            if ([[prefs valueForKey: keyval] boolValue] == YES) {
+
+                [result addObject:identifier];
+
+            }
+
+        }
+
+    }
+
+	return result;
+
+}
+
+%new
+
+-(BOOL)isAppDisabled:(NSString*)identifier fromPrefs:(NSMutableDictionary*)prefs {
+
+	return (prefs[[NSString stringWithFormat:@"%@%@", @"disabledIn-", identifier]] ? YES : NO);
 
 }
 
@@ -85,11 +136,11 @@ static BOOL nonUserSwitch = false;
 	*/
 
 	NSMutableDictionary *prefs = [[NSMutableDictionary alloc]
-		initWithContentsOfFile:@"/private/var/mobile/Library/Preferences/com.tareq.orientationcontrol.plist"];
+		initWithContentsOfFile: prefsFile];
 
 	enabled = ([prefs objectForKey:@"enabled"] ? [[prefs objectForKey:@"enabled"] boolValue] : YES);
 
-	if (self.orientation != orientation && self.orientation == 1 && !nonUserSwitch && enabled) {
+	if (self.orientation != orientation && self.orientation == 1 && !nonUserSwitch && enabled && !appDisabled) {
 
 		UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"SBSceneView"
 			message: [NSString stringWithFormat:@"%lli > %lli", self.orientation, orientation]
@@ -134,8 +185,9 @@ static void preferencesChanged(CFNotificationCenterRef center, void *observer, C
 	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, preferencesChanged, CFSTR("com.tareq.orientationcontrol.preferencechanged"), NULL, CFNotificationSuspensionBehaviorCoalesce);
 
 	NSMutableDictionary *prefs = [[NSMutableDictionary alloc]
-		initWithContentsOfFile:@"/private/var/mobile/Library/Preferences/com.tareq.orientationcontrol.plist"];
+		initWithContentsOfFile: prefsFile];
 
 	enabled = ([prefs objectForKey:@"enabled"] ? [[prefs objectForKey:@"enabled"] boolValue] : YES);
+	appDisabled = false;
 
 }

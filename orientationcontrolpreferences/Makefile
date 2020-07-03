@@ -10,5 +10,6 @@ OrientationControlPreferences_FRAMEWORKS = UIKit
 OrientationControlPreferences_PRIVATE_FRAMEWORKS = Preferences
 OrientationControlPreferences_INSTALL_PATH = /Library/PreferenceBundles
 OrientationControlPreferences_CFLAGS = -fobjc-arc
+OrientationControlPreferences_LIBRARIES = applist
 
 include $(THEOS_MAKE_PATH)/bundle.mk

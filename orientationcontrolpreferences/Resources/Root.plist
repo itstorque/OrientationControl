@@ -26,6 +26,28 @@
 			<key>PostNotification</key>
 			<string>com.tareq.orientationcontrol.preferencechanged</string>
 		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>bundle</key>
+			<string>AppList</string>
+			<key>isController</key>
+			<true/>
+			<key>label</key>
+			<string>Disable Tweak in Apps</string>
+			<key>ALAllowsSelection</key>
+			<true/>
+			<key>ALSettingsDefaultValue</key>
+			<string>com.tareq.orientationcontrol</string>
+			<key>ALSettingsKeyPrefix</key>
+			<string>disabledIn-</string>
+			<key>ALSettingsPath</key>
+			<string>/var/mobile/Library/Preferences/com.tareq.orientationcontrol.plist</string>
+			<key>ALSingleEnabledMode</key>
+			<false/>
+			<key>ALChangeNotification</key>
+			<string>ml.festival.redstone.preferencechanged</string>
+		</dict>
 	</array>
 	<key>title</key>
 	<string>OrientationControl</string>

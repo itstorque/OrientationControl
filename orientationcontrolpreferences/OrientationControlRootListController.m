@@ -1,4 +1,5 @@
 #include "OrientationControlRootListController.h"
+#import <AppList/AppList.h>
 
 @implementation OrientationControlRootListController
 
