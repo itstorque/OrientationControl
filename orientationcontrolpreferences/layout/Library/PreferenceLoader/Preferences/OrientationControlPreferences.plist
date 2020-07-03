@@ -11,7 +11,7 @@
 		<key>detail</key>
 		<string>OrientationControlRootListController</string>
 		<key>icon</key>
-		<string>icon.png</string>
+		<string>/Library/PreferenceLoader/Preferences/OrientationControl.png</string>
 		<key>isController</key>
 		<true/>
 		<key>label</key>

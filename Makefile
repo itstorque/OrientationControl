@@ -7,7 +7,7 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = OrientationControl
 
-OrientationControl_FILES = Tweak.x
+OrientationControl_FILES = Tweak.x toggle.x
 OrientationControl_CFLAGS = -fobjc-arc
 
 include $(THEOS_MAKE_PATH)/tweak.mk

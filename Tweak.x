@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import "Utils.h"
+#import "toggle.h"
 
 @interface NSUserDefaults (Tweak_Category)
 - (id)objectForKey:(NSString *)key inDomain:(NSString *)domain;
@@ -9,10 +10,20 @@
 static NSString * nsDomainString = @"com.tareq.orientationcontrol";
 static NSString * nsNotificationString = @"com.tareq.orientationcontrolpreferences/preferences.changed";
 static NSString * prefsFile = @"/private/var/mobile/Library/Preferences/com.tareq.orientationcontrol.plist";
-static BOOL enabled;
-static BOOL appDisabled;
 
+// Preferences
+static BOOL  enabled;
+static BOOL  appDisabled;
+static BOOL  useAlertsInstead = false;
+static float timeIntervalForHide = 5.0;
+
+// Internal Variables
 static BOOL nonUserSwitch = false;
+OrientationControlToggle* toggle;
+
+#define lockRotation \
+						nonUserSwitch = true;\
+						[[%c(SBOrientationLockManager) sharedInstance] lock];
 
 %hook SpringBoard
 
@@ -58,34 +69,35 @@ static BOOL nonUserSwitch = false;
 	} else if ([newDisplay isKindOfClass:%c(SBApplication)] && enabled) {
 		// In An Application
 
-		// NSString* title = @"SBApplication Not Disabled";
 		NSString* identifier = ((SBApplication *) newDisplay).bundleIdentifier;
 
 		if ([self isAppDisabled: identifier fromPrefs: prefs]) {
-
-			// title = @"SBApplication Is Disabled";
 
 			appDisabled = YES;
 
 		}
 
-		// UIAlertController* alert = [UIAlertController alertControllerWithTitle:title
-		// 	message: [NSString stringWithFormat: @"%@\n%@\n%@",
-		// 		identifier,
-		// 		[NSString stringWithFormat:@"%@%@", @"disabledIn-", identifier],
-		// 		prefs[[NSString stringWithFormat:@"%@%@", @"disabledIn-", identifier]]
-		// 	]
-		// 	preferredStyle:UIAlertControllerStyleAlert];
-		//
-		// UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"OK"
-		// 	style:UIAlertActionStyleDefault
-		// 	handler:^(UIAlertAction * action) { }];
-		//
-		// [alert addAction:defaultAction];
-		//
-		// [[[UIApplication sharedApplication] keyWindow].rootViewController presentViewController:alert animated:YES completion:nil];
+	}
+
+}
+
+-(void)applicationDidFinishLaunching:(id)application {
+
+	//TODO: link variable that checks if use alert view or floating toggle check if we need to update enabled
+	//TODO: Add timer modification option in setting
+
+	if (enabled) {
+
+		toggle = [[%c(OrientationControlToggle) alloc] init:!useAlertsInstead withCallback:^(){
+
+			lockRotation;
+			[toggle hide];
+
+		}];
 
 	}
+
+	%orig(application);
 
 }
 
@@ -142,31 +154,56 @@ static BOOL nonUserSwitch = false;
 
 	if (self.orientation != orientation && self.orientation == 1 && !nonUserSwitch && enabled && !appDisabled) {
 
-		UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"SBSceneView"
-			message: [NSString stringWithFormat:@"%lli > %lli", self.orientation, orientation]
-			preferredStyle:UIAlertControllerStyleAlert];
+		if (useAlertsInstead) {
 
-		UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"Switch"
-			style:UIAlertActionStyleDefault
-			handler:^(UIAlertAction * action) { }];
+			[self showAlert];
 
-		UIAlertAction* cancelAction = [UIAlertAction actionWithTitle:@"Nope"
-			style:UIAlertActionStyleCancel
-			handler:^(UIAlertAction * action) {
+		} else {
 
-				nonUserSwitch = true;
-				[[%c(SBOrientationLockManager) sharedInstance] lock];
+			[toggle show];
 
-		}];
+			[NSTimer scheduledTimerWithTimeInterval: timeIntervalForHide
+			    target:[NSBlockOperation blockOperationWithBlock: ^{
 
-		[alert addAction:defaultAction];
-		[alert addAction:cancelAction];
+					[toggle hide];
 
-		[[[UIApplication sharedApplication] keyWindow].rootViewController presentViewController:alert animated:YES completion:nil];
+				}]
+			    selector: @selector(main)
+			    userInfo:nil
+			    repeats:NO];
+
+		}
 
 	}
 
 	%orig;
+
+}
+
+%new
+
+-(void)showAlert {
+
+	UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"OrientationControl"
+		message: @"Do you want to rotate the screen?"
+		preferredStyle:UIAlertControllerStyleAlert];
+
+	UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"Rotate"
+		style:UIAlertActionStyleDefault
+		handler:^(UIAlertAction * action) { }];
+
+	UIAlertAction* cancelAction = [UIAlertAction actionWithTitle:@"Remain Portrait"
+		style:UIAlertActionStyleCancel
+		handler:^(UIAlertAction* action) {
+
+			lockRotation;
+
+	}];
+
+	[alert addAction:defaultAction];
+	[alert addAction:cancelAction];
+
+	[[[UIApplication sharedApplication] keyWindow].rootViewController presentViewController:alert animated:YES completion:nil];
 
 }
 
